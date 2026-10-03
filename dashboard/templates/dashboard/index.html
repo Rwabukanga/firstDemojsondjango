@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JSON from view to template</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 2rem; }
+    th, td { border: 1px solid #ccc; padding: .4rem .6rem; text-align: left; }
+    pre { background: #f4f4f4; padding: .8rem; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Passing data from a Django view to a template</h1>
+
+  <!-- Method 1: use the context directly in the template. No JSON needed. -->
+  <h2>1. Rendered by the template</h2>
+  <table>
+    <tr><th>Month</th><th>Total</th><th>Note</th></tr>
+    {% for row in sales %}
+      <tr><td>{{ row.month }}</td><td>{{ row.total }}</td><td>{{ row.note }}</td></tr>
+    {% endfor %}
+  </table>
+
+  <!-- Method 2: json_script writes <script id="sales-data" type="application/json">…</script>
+       and escapes <, > and & so the data cannot break out of the tag. -->
+  <h2>2. Read by JavaScript (json_script)</h2>
+  {{ sales|json_script:"sales-data" }}
+  {{ settings_for_js|json_script:"settings-data" }}
+  <pre id="out-inline"></pre>
+
+  <!-- Method 3: fetch the JSON from a separate endpoint. -->
+  <h2>3. Loaded with fetch()</h2>
+  <pre id="out-fetch">Loading…</pre>
+
+  <script>
+    // Method 2
+    const sales = JSON.parse(document.getElementById("sales-data").textContent);
+    const settings = JSON.parse(document.getElementById("settings-data").textContent);
+    const total = sales.reduce((sum, row) => sum + row.total, 0);
+    document.getElementById("out-inline").textContent =
+      `Rows: ${sales.length}\nTotal: ${total} ${settings.currency}\n\n` +
+      JSON.stringify(sales, null, 2);
+
+    // Method 3
+    fetch("{% url 'dashboard:sales_api' %}")
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((data) => {
+        document.getElementById("out-fetch").textContent = JSON.stringify(data, null, 2);
+      })
+      .catch((error) => {
+        document.getElementById("out-fetch").textContent = `Could not load: ${error.message}`;
+      });
+  </script>
+</body>
+</html>
